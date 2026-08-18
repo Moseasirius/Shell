@@ -9,13 +9,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
-
+#include "sh.h"
 //
 // You should use the following functions to print information
 // Do not modify these functions
 //
 
 // Track virtual environment state
+ // 条件编译：测试构建时，不要编译sh.c的全局变量和打印函数
+#ifndef TEST_BUILD
 static int env_active = 0;
 static char* env_path = NULL;
 static char* original_path = NULL;
@@ -23,12 +25,13 @@ static char* original_path = NULL;
 void print_prompt() {
     if (env_active) {
         printf("(env) sh > ");
+        (void)env_path; // Suppress unused variable warning
+        (void)original_path; // Suppress unused variable warning
     } else {
         printf("sh > ");
     }
     fflush(stdout);
 }
-
 void print_invalid_syntax() {
     printf("Invalid Syntax\n");
     fflush(stdout);
@@ -55,28 +58,16 @@ void print_blocked_syscall(char* syscall_name, int count, ...) {
     printf("\n");
     fflush(stdout);
 }
-
+#endif
 // 
 // You can add your own functions here
 //
-#define SUCCESS 0
-#define FAILURE 1
-#define MAX_INPUT_LENGTH 1024
-#define SUPPORT_FGETS 0
-#define SUPPORT_GETLINE 1
-
-
-typedef enum Ret {
-    SH_SUCCESS = 0,
-    SH_FAILURE
-} Ret;
 #if SUPPORT_FGETS
 char input_buffer[MAX_INPUT_LENGTH]; // Buffer to store user input
-Ret get_input(char* buffer, size_t size);
 #endif
-#if SUPPORT_GETLINE
-Ret get_input(char** buffer, size_t size);
-#endif
+
+// 条件编译：测试构建时，不要编译sh.c的main
+#ifndef TEST_BUILD
 int main() {
     while(1) {
         print_prompt();
@@ -99,6 +90,7 @@ int main() {
         break;
     }
 }
+#endif
 /*
 *
  * Function: get_input
@@ -151,3 +143,51 @@ Ret get_input(char** buffer, size_t size) {
     return SH_SUCCESS;
 }
 #endif
+/*
+ * Function: parse_input
+ * ----------------------
+ * Parses a string into an array of strings (arguments).
+ *
+ * @input: The input string to parse.
+ * @args: A pointer to a pointer to store the array of arguments.
+ * @arg_count: A pointer to store the number of arguments.
+ *
+ * @returns: SH_SUCCESS if parsing was successful, SH_FAILURE otherwise.
+ */
+Ret parse_input(char* input, char*** args, int* arg_count) {
+    // Count the number of arguments
+    int count = 0;
+    char* temp = strdup(input);
+    char* token = strtok(temp, " ");
+    while (token != NULL) {
+        count++;
+        token = strtok(NULL, " ");
+    }
+    free(temp);
+
+    // Allocate memory for arguments
+    *args = malloc((count + 1) * sizeof(char*));
+    if (*args == NULL) {
+        return SH_FAILURE;
+    }
+
+    // Split the input into arguments
+    int index = 0;
+    token = strtok(input, " ");
+    while (token != NULL) {
+        (*args)[index] = strdup(token);
+        if ((*args)[index] == NULL) {
+            // Free previously allocated memory on failure
+            for (int i = 0; i < index; i++) {
+                free((*args)[i]);
+            }
+            free(*args);
+            return SH_FAILURE;
+        }
+        index++;
+        token = strtok(NULL, " ");
+    }
+    (*args)[index] = NULL; // Null-terminate the argument list
+    *arg_count = count;
+    return SH_SUCCESS;
+}

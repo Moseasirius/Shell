@@ -9,13 +9,33 @@
 # URL=http://123.456.789.0:9999
 
 
-sh: sh.c
-	gcc sh.c -o sh
+# sh: sh.c
+# 	gcc sh.c -o sh
+
+# clean:
+# 	rm -f *.o sh
+
+CC=gcc
+CFLAGS=-Wall -g
+
+# 正式shell：sh.o包含sh.c的main函数
+sh: sh.o
+	$(CC) $(CFLAGS) sh.o -o sh
+
+# 测试程序：编译一份特殊的sh_for_test.o，-DTEST_BUILD屏蔽sh.c中的main
+test: test.o sh_for_test.o
+	$(CC) $(CFLAGS) test.o sh_for_test.o -o test
+
+# 编译sh.c用于测试：定义TEST_BUILD，sh.c的main被#ifdef切掉
+sh_for_test.o: sh.c sh.h
+	$(CC) $(CFLAGS) -DTEST_BUILD -c $< -o $@
+
+# 普通编译规则（用于sh.o、test.o）
+%.o: %.c sh.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o sh
-
-
+	rm -f *.o sh test
 STYLE=\033[1;31m
 NC=\033[0m
 

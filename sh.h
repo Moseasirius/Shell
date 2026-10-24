@@ -20,3 +20,6 @@ Ret get_input(char** buffer, size_t size);
 #endif
 
 Ret parse_input(char* input, char*** args, int* arg_count);
+
+Ret process_input(char** args, int* arg_count);
+
